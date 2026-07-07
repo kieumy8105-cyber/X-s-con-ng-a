@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uma Lottery - Xổ số con ngựa</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { color: #d32f2f; text-transform: uppercase; margin-bottom: 5px; }
+        .container {
+            max-width: 700px;
+            width: 100%;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.3s;
+            margin: 15px 0;
+        }
+        button:hover { background-color: #218838; }
+        button:disabled { background-color: #cccccc; cursor: not-allowed; }
+        
+        /* Vùng hiển thị thẻ bài */
+        .card-container {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 25px 0;
+            flex-wrap: wrap;
+        }
+        .card {
+            width: 100px;
+            height: 140px;
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: transform 0.3s, background 0.3s;
+            user-select: none;
+        }
+        .card:hover { transform: translateY(-5px); }
+        .card.flipped {
+            background: #ffffff;
+            color: #333;
+            border: 2px solid #007bff;
+            cursor: default;
+            transform: none;
+        }
+
+        /* Khu vực Lồng Cầu Quay Số */
+        #lottery-machine-zone {
+            display: none;
+            margin: 20px 0;
+            flex-direction: column;
+            align-items: center;
+        }
+        .cage-container {
+            position: relative;
+            width: 160px;
+            height: 160px;
+        }
+        /* Hiệu ứng xoay lồng cầu */
+        .cage {
+            width: 100%;
+            height: 100%;
+            border: 5px dashed #444;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.05);
+            box-sizing: border-box;
+        }
+        .cage.spinning {
+            animation: spinCage 3s linear infinite;
+        }
+        /* Hiệu ứng lắc lư nhẹ nhàng trái phải, không bị lộn ngược đầu nhân vật */
+@keyframes spinCage {
+    0% { transform: rotate(0deg); }
+    25% { transform: rotate(10deg); } /* Nghiêng qua phải 10 độ */
+    50% { transform: rotate(0deg); }
+    75% { transform: rotate(-10deg); } /* Nghiêng qua trái 10 độ */
+    100% { transform: rotate(0deg); }
+}
+
+.cage.spinning {
+    /* Cho hiệu ứng lắc lư chạy trong 1.5 giây và lặp đi lặp lại */
+    animation: spinCage 1.5s ease-in-out infinite;
+}
+        /* Chân đế lồng cầu */
+        .stand {
+            width: 100px;
+            height: 20px;
+            background-color: #555;
+            margin-top: -5px;
+            border-radius: 0 0 10px 10px;
+        }
+
+        .player-list {
+            text-align: left;
+            margin: 20px 0;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 5px solid #007bff;
+        }
+        .player-ticket {
+            font-size: 16px;
+            margin: 10px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .ticket-num {
+            font-family: monospace;
+            font-weight: bold;
+            color: #333;
+            letter-spacing: 2px;
+            background: #e9ecef;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 18px;
+        }
+        .match-count { font-size: 14px; font-weight: bold; color: #555; }
+        #result-box {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            display: none;
+        }
+        .winning-number {
+            font-size: 32px;
+            color: #ff9800;
+            background: #222;
+            padding: 10px 20px;
+            border-radius: 8px;
+            display: inline-block;
+            margin: 10px 0;
+            letter-spacing: 5px;
+            font-family: monospace;
+        }
+        .winner-announce {
+            color: #28a745;
+            font-size: 22px;
+            margin-top: 15px;
+            background: #e8f5e9;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px dashed #28a745;
+        }
+        .highlight-match {
+            color: #d32f2f;
+            background-color: #ffeb3b;
+            padding: 0 2px;
+            border-radius: 2px;
+        }
+        #game-instruction { font-weight: bold; color: #555; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Uma Lottery - Xổ số con ngựa</h1>
+    <p style="color:#666;">Luật chơi: Mỗi người mua một tờ, sau đó lồng cầu sẽ quay số để tìm người có vé trùng nhiều số với số nhất! </p>
+        🐎 Xổ số con ngựa, tối 10h37 xổ, xách rổ đựng tiền. 🐎</p>
+    
+    <button id="btn-start" onclick="initGame()">Mua vé số</button>
+    <div id="game-instruction"></div>
+    
+   <div class="card-container" id="card-area" style="display:none;">
+    <div class="card" id="card-0" onclick="flipCard(0)"><img src="back_card.png" width="100%"></div>
+    <div class="card" id="card-1" onclick="flipCard(1)"><img src="back_card.png" width="100%"></div>
+    <div class="card" id="card-2" onclick="flipCard(2)"><img src="back_card.png" width="100%"></div>
+    <div class="card" id="card-3" onclick="flipCard(3)"><img src="back_card.png" width="100%"></div>
+    <div class="card" id="card-4" onclick="flipCard(4)"><img src="back_card.png" width="100%"></div>
+</div>
+
+   <div id="lottery-machine-zone">
+    <div class="cage-container">
+        <div id="lucky-cage" class="cage">
+            <video id="cage-mp4" src="Haru.mp4" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: none;" autoplay muted loop></video>
+        </div>
+    </div>
+    <div class="stand"></div>
+    <button id="btn-spin" onclick="spinWheel()">Quay số</button>
+</div>
+    
+    <div class="player-list" id="players-display" style="display:none;">
+        <h3>Vé số của các người chơi đã mua:</h3>
+        <div class="player-ticket">Người chơi 1: <span class="ticket-num" id="t1">------</span> <span class="match-count" id="m1"></span></div>
+        <div class="player-ticket">Người chơi 2: <span class="ticket-num" id="t2">------</span> <span class="match-count" id="m2"></span></div>
+        <div class="player-ticket">Người chơi 3: <span class="ticket-num" id="t3">------</span> <span class="match-count" id="m3"></span></div>
+        <div class="player-ticket">Người chơi 4: <span class="ticket-num" id="t4">------</span> <span class="match-count" id="m4"></span></div>
+        <div class="player-ticket">Người chơi 5: <span class="ticket-num" id="t5">------</span> <span class="match-count" id="m5"></span></div>
+    </div>
+
+    <div id="result-box">
+        <div>Con số trúng thưởng xuất hiện từ lồng cầu:</div>
+        <div class="winning-number" id="lucky-num">000000</div>
+        <div class="winner-announce" id="winner-text"></div>
+    </div>
+    <div id="winner-popup" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 999; justify-content: center; align-items: center;">
+    <div style="background: white; padding: 30px; border-radius: 15px; text-align: center; max-width: 400px; width: 90%; box-shadow: 0 5px 25px rgba(0,0,0,0.3); animation: popScale 0.3s ease;">
+        
+        <video src="Macchan.mp4" style="width: 180px; height: auto; margin-bottom: 15px; border-radius: 8px;" autoplay muted loop></video>
+        
+        <h2 style="color: #d32f2f; margin: 10px 0; font-size: 28px; font-weight: bold;">Xách rổ đựng tiền!</h2>
+        
+        <p id="popup-winner-name" style="font-size: 18px; color: #333; margin-bottom: 20px; font-weight: 500;"></p>
+        
+        <button onclick="closePopupAndRestart()" style="background-color: #ff9800; color: white; border: none; padding: 12px 30px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; transition: 0.3s; width: 100%;">
+            Lượt tiếp theo
+        </button>
+    </div>
+</div>
+
+<style>
+@keyframes popScale {
+    from { transform: scale(0.7); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+</style>
+</div>
+
+<script>
+    let hiddenTickets = []; 
+    let players = []; 
+    let currentFlippedCount = 0; 
+    let isGameReady = false;
+
+    function generateRandomTicket() {
+        let number = Math.floor(Math.random() * 1000000);
+        return number.toString().padStart(6, '0');
+    }
+
+    function initGame() {
+        hiddenTickets = [];
+        players = Array(5).fill("------"); 
+        currentFlippedCount = 0;
+        isGameReady = true;
+
+        for (let i = 0; i < 5; i++) {
+            hiddenTickets.push(generateRandomTicket());
+        }
+
+        for (let i = 0; i < 5; i++) {
+            let card = document.getElementById(`card-${i}`);
+            card.className = "card";
+            card.innerText = `Thẻ ${i + 1}`;
+            
+            document.getElementById(`t${i+1}`).innerText = "------";
+            document.getElementById(`t${i+1}`).style.background = "#e9ecef";
+            document.getElementById(`m${i+1}`).innerText = "";
+        }
+
+        document.getElementById("card-area").style.display = "flex";
+        document.getElementById("players-display").style.display = "block";
+        document.getElementById("game-instruction").innerText = "👉 Mời Người chơi 1 chọn và bấm vào 1 thẻ bất kỳ!";
+        document.getElementById("game-instruction").style.color = "#007bff";
+        
+        document.getElementById("btn-start").disabled = true;
+        document.getElementById("lottery-machine-zone").style.display = "none";
+        document.getElementById("result-box").style.display = "none";
+    }
+
+    function flipCard(cardIndex) {
+    let card = document.getElementById(`card-${cardIndex}`);
+    if (!isGameReady || card.classList.contains("flipped")) return;
+
+    // 1. Tạo một danh sách (Mảng) chứa đúng tên các file ảnh theo thứ tự từ Thẻ 1 đến Thẻ 5
+    const characterImages = [
+        "Teio.png",
+        "Bourbon.png",
+        "Gold Ship.png",
+        "Falcon.png",
+        "super creek.png"
+    ];
+
+    // Lấy ra tên ảnh tương ứng với thẻ vừa được bấm
+    let chosenImage = characterImages[cardIndex];
+
+    let playerIndex = currentFlippedCount; 
+    let ticketNumber = hiddenTickets[cardIndex];
+    players[playerIndex] = ticketNumber;
+
+    card.classList.add("flipped");
+
+    // 2. Thay đổi nội dung bên trong thẻ: Hiện ảnh nhân vật và chèn chữ số lên trên ảnh
+    card.innerHTML = `
+        <div style="position: relative; width: 100%; height: 100%;">
+            <img src="${chosenImage}" width="100%" style="border-radius: 8px; display: block;">
+            
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.4); border-radius: 8px;"></div>
+            
+            <div style="position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); color: #d32f2f; font-size: 16px; font-weight: bold; background: white; padding: 2px 6px; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+                ${ticketNumber}
+            </div>
+            
+            <small style="position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%); color: #000; font-weight: bold; font-size: 11px; background: rgba(255,255,255,0.8); padding: 1px 4px; border-radius: 3px;">
+                Người ${playerIndex + 1}
+            </small>
+        </div>
+    `;
+
+    document.getElementById(`t${playerIndex + 1}`).innerText = ticketNumber;
+    currentFlippedCount++;
+
+    if (currentFlippedCount < 5) {
+        document.getElementById("game-instruction").innerText = `👉 Mời Người chơi ${currentFlippedCount + 1} chọn thẻ tiếp theo!`;
+    } else {
+        isGameReady = false;
+        document.getElementById("game-instruction").innerText = "🎉 Lật thẻ hoàn tất! Lồng cầu quay số đã sẵn sàng bên dưới.";
+        document.getElementById("game-instruction").style.color = "#28a745";
+        document.getElementById("lottery-machine-zone").style.display = "flex";
+        document.getElementById("btn-spin").disabled = false;
+    }
+}
+   function spinWheel() {
+    document.getElementById("btn-spin").disabled = true;
+    document.getElementById("result-box").style.display = "block";
+    document.getElementById("winner-text").innerText = "🔮 Lồng cầu đang quay! Các con số đang đảo trộn...";
+
+    // 1. HIỆN ẢNH GIF BÊN TRONG LỒNG CẦU
+    let cageGif = document.getElementById("cage-mp4");
+    if(cageGif) {
+        cageGif.src = "Haru.mp4"; // Đảm bảo gọi chính xác file Haru.mp4
+        cageGif.style.display = "block";
+    }
+
+    // Kích hoạt hiệu ứng xoay lồng cầu
+    let cage = document.getElementById("lucky-cage");
+    cage.classList.add("spinning");
+
+    let counter = 0;
+    let interval = setInterval(() => {
+        document.getElementById("lucky-num").innerText = generateRandomTicket();
+        counter++;
+        
+        // Thay đổi số 35 cũ thành 214 để ép game chạy đủ 15 giây mới dừng
+        if (counter > 214) { 
+            clearInterval(interval);
+            cage.classList.remove("spinning"); // Dừng quay lồng cầu
+            
+            // 2. ẨN ẢNH GIF ĐI KHI ĐÃ CÓ KẾT QUẢ
+            if(cageGif) cageGif.style.display = "none"; 
+            
+            determineWinner(); // Tính kết quả trúng thưởng
+        }
+    }, 70); // 70ms nhảy số 1 lần
+}
+  function determineWinner() {
+    let finalLuckyNum = generateRandomTicket();
+    document.getElementById("lucky-num").innerText = finalLuckyNum;
+
+    let maxMatches = -1;
+    let playerResults = [];
+
+    // Danh sách ảnh nhân vật tương ứng với các thẻ từ 0 đến 4
+    const characterImages = [
+        "Teio.png",
+        "Bourbon.png",
+        "Gold Ship.png",
+        "Falcon.png",
+        "super creek.png"
+    ];
+
+    // 1. Tính toán số lượng trùng số của từng người như cũ
+    for (let i = 0; i < players.length; i++) {
+        let ticket = players[i];
+        let matchCount = 0;
+        let highlightedTicketHtml = "";
+
+        for (let j = 0; j < 6; j++) {
+            if (ticket[j] === finalLuckyNum[j]) {
+                matchCount++;
+                highlightedTicketHtml += `<span class="highlight-match">${ticket[j]}</span>`;
+            } else {
+                highlightedTicketHtml += ticket[j];
+            }
+        }
+
+        playerResults.push({
+            index: i + 1,
+            matchCount: matchCount,
+            html: highlightedTicketHtml
+        });
+
+        if (matchCount > maxMatches) {
+            maxMatches = matchCount;
+        }
+
+        document.getElementById(`t${i+1}`).innerHTML = highlightedTicketHtml;
+        document.getElementById(`m${i+1}`).innerText = `(Trùng ${matchCount} số)`;
+    }
+
+    // 2. Tìm ra danh sách những người có số lượng trùng cao nhất (Người Thắng)
+    let winners = playerResults.filter(p => p.matchCount === maxMatches);
+    let winnerNames = winners.map(w => `Người chơi ${w.index}`);
+
+    // Đổi màu nền bảng điểm cho người thắng
+    winners.forEach(w => {
+        document.getElementById(`t${w.index}`).style.background = "#d4edda";
+    });
+
+    // 3. HIỆU ỨNG PHÓNG TO THẺ NHÂN VẬT CHIẾN THẮNG
+    if (maxMatches > 0) {
+        // Tạo một danh sách các vị trí thẻ gốc (ví dụ: Người 1 trúng thì là thẻ nào ẩn dưới đó)
+        // Vì lúc lật, thứ tự lật có thể khác thứ tự thẻ gốc, chúng ta cần tìm xem dãy số thắng nằm ở thẻ ID nào
+        
+        for (let cardIdx = 0; cardIdx < 5; cardIdx++) {
+            let cardElement = document.getElementById(`card-${cardIdx}`);
+            let isThisCardWinner = false;
+
+            // Kiểm tra xem dãy số của thẻ này có thuộc về người chiến thắng không
+            winners.forEach(w => {
+                if (players[w.index - 1] === hiddenTickets[cardIdx]) {
+                    isThisCardWinner = true;
+                }
+            });
+
+            if (isThisCardWinner) {
+                // Nếu là thẻ thắng: Phóng to 1.3 lần, đẩy lên trên, thêm viền lấp lánh và hiệu ứng mượt mà
+                cardElement.style.transition = "transform 0.5s ease, box-shadow 0.5s ease";
+                cardElement.style.transform = "scale(1.3) translateY(-10px)";
+                cardElement.style.boxShadow = "0 0 25px #ffc107, 0 0 50px #ff9800";
+                cardElement.style.zIndex = "10"; // Đảm bảo đè lên các thẻ khác nếu bị chạm vào nhau
+                cardElement.style.border = "3px solid #ffc107";
+            } else {
+                // Nếu là thẻ thua: Làm mờ đi (độ mờ còn 40%) để tôn vinh nhân vật chiến thắng
+                cardElement.style.transition = "opacity 0.5s ease, transform 0.5s ease";
+                cardElement.style.opacity = "0.4";
+                cardElement.style.transform = "scale(0.9)";
+            }
+        }
+    }
+
+    // (Đoạn code trên giữ nguyên...)
+    
+    // In kết quả thông báo ra màn hình nền và KÍCH HOẠT POP-UP
+    let resultText = document.getElementById("winner-text");
+    if (maxMatches > 0) {
+        resultText.innerHTML = `🎉 Người thắng cuộc: <b>${winnerNames.join(", ")}</b> <br> <span style="font-size:16px;">(Trùng cao nhất với <b>${maxMatches}/6</b> chữ số!)</span>`;
+        resultText.style.color = "#28a745";
+
+        // HIỆN POP-UP CHÚC MỪNG (Sau khi chốt kết quả 0.5 giây để người chơi kịp nhìn thẻ phóng to)
+        setTimeout(() => {
+            document.getElementById("popup-winner-name").innerHTML = `Chúc mừng <b>${winnerNames.join(", ")}</b> đã chiến thắng!`;
+            document.getElementById("winner-popup").style.display = "flex";
+        }, 500);
+
+    } else {
+        resultText.innerHTML = "🤝 Kết quả hòa! Không ai trùng chữ số nào cả.";
+        resultText.style.color = "#777";
+        
+        // Nếu hòa thì có thể hiện pop-up hoặc không tùy bạn, ở đây mình cho hiện luôn với chữ "Kết quả hòa"
+        setTimeout(() => {
+            document.getElementById("popup-winner-name").innerText = "Tiếc quá, lượt này không ai trúng số nào cả!";
+            document.getElementById("winner-popup").style.display = "flex";
+        }, 500);
+    }
+
+    // Mở lại nút để chơi lượt mới ở nền dưới
+    document.getElementById("btn-start").disabled = false;
+    document.getElementById("btn-start").innerText = "Chơi Lượt Mới";
+}// Hàm xử lý khi bấm nút "Lượt tiếp theo" trên Pop-up
+function closePopupAndRestart() {
+    // 1. Ẩn pop-up đi
+    document.getElementById("winner-popup").style.display = "none";
+    
+    // 2. Reset lại hiệu ứng phóng to/mờ của các thẻ nhân vật cũ
+    for (let i = 0; i < 5; i++) {
+        let c = document.getElementById(`card-${i}`);
+        if(c) {
+            c.style.transform = "none";
+            c.style.boxShadow = "0 4px 8px rgba(0,0,0,0.2)";
+            c.style.opacity = "1";
+            c.style.border = "none";
+        }
+    }
+    
+    // 3. Tự động kích hoạt lượt chơi mới luôn
+    initGame();
+}
+</script>
+
+</body>
+</html>
